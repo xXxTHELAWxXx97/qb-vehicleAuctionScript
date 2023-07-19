@@ -5,18 +5,18 @@ game 'gta5'
 author 'santos#0069'
 description 'Simple Vehicle Auction Script'
 
-shared_script 'config.lua'
-shared_script 'esx.lua'
-shared_script 'notifications.lua'
+shared_scripts{
+	'config.lua',
+	'notifications.lua',
+}
 
 server_scripts {
-	'@async/async.lua',
-	'@mysql-async/lib/MySQL.lua',
-	
+	'@oxmysql/lib/MySQL.lua',
 	'server/*.lua',
 }
 
 client_scripts {
+	'@menuv/menuv.lua',
 	'client/utils.lua',
 	'client/enumerators.lua',
 	'client/client.lua',

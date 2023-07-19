@@ -1,20 +1,25 @@
-Config = {}
+config = {}
 
 --[[
 	All possible notification systems, choose the one you want:
-		esx
+		qb
 		okokNotify
 		renzu_notify
 		mythic_notify
 ]]
-Config.Notifications = "mythic_notify"
+config.Notifications = "qb"
 
--- Esx version, put "legacy" if you are using legacy, if not, just write "old"
-Config.ESX = "old"
+config.BypassOnwership = { -- Bypasses ownership check, useful for testing or if you want to allow admins to set a vehicle up for auction that is not owned yet.
+	permission = 'admin',
+	job = 'Auctioner',
+	grade = '5'
+}
 
-Config.AuctionDuration = 10 -- Duration In seconds
+config.ShowDistance = 'mi' -- mi or km
 
-Config.MapBlips = {
+config.AuctionDuration = 15 -- Duration In seconds
+
+config.MapBlips = {
 	{
 		coords = vector3(-45.9, -1093.82, 25.45),
 		name = "Auction Area",
@@ -23,7 +28,7 @@ Config.MapBlips = {
 	}
 }
 
-Config.AuctionAreas = {
+config.AuctionAreas = {
     {
         coords = vector3(-46.97, -1097.2, 25.45),
         radius = 7,

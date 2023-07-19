@@ -1,55 +1,103 @@
+QBCore = exports['qb-core']:GetCoreObject()
+
+local function GeneratePlate()
+    local plate = QBCore.Shared.RandomInt(1) .. QBCore.Shared.RandomStr(2) .. QBCore.Shared.RandomInt(3) .. QBCore.Shared.RandomStr(2)
+    local result = MySQL.scalar.await('SELECT plate FROM player_vehicles WHERE plate = ?', {plate})
+    if result then
+        return GeneratePlate()
+    else
+        return plate:upper()
+    end
+end
+
 RegisterServerEvent("auction:isAreaFree")
 AddEventHandler("auction:isAreaFree", function(id)
+    print("checking if area is free")
     local src = source
 
-    if not Config.AuctionAreas[id] then
+    if not config.AuctionAreas[id] then
+        print('cheater detected')
         logs.cheater(src)
         return
     end
 
-    local area = Config.AuctionAreas[id]
+    local area = config.AuctionAreas[id]
 
     if area.beingUsed then
-        notification(src, "info", "Info", "Area is being used")
+        print('area is being used')
+        notification(src, "error", "Info", "Area is being used")
         return
     end
 
-    local xPlayer = ESX.GetPlayerFromId(src)
+    local Player = QBCore.Functions.GetPlayer(src)
+    local pdata = Player.PlayerData
 
-    MySQL.Async.fetchAll(
-        "SELECT * FROM owned_vehicles WHERE owner = @identifier",
-        {["@identifier"] = xPlayer.identifier}, function(result)
-            if #result > 0 then
-                local list = {}
+    if QBCore.Functions.HasPermission(src, config.BypassOnwership.permission) then
+        print("Admin has triggered an auction")
+        local list = {}
+        for k, veh in pairs(QBCore.Shared.Vehicles) do
+            local hash = GetHashKey(veh.model)
+            list[#list + 1] = {
+                hash = hash,
+                model = veh.model,
+                plate = "ADMIN",
+                distance = 0
+            }
+        end
+        TriggerClientEvent("auction:openVehicleList", src, id, list)
+    elseif pdata.job.name == config.BypassOnwership.job and pdata.job.grade == config.BypassOwnership.grade then
+        print("Auctioner has triggered an auction")
+        local list = {}
+        for k, veh in pairs(QBCore.Shared.Vehicles) do
+            local hash = GetHashKey(veh.model)
+            list[#list + 1] = {
+                hash = hash,
+                model = veh.model,
+                plate = "ADMIN",
+                distance = 0
+            }
+        end
+        TriggerClientEvent("auction:openVehicleList", src, id, list)
+    else
+        print("Player has triggered an auction")
+        print('citizenid: ' .. pdata.citizenid)
+        local result = MySQL.query.await("SELECT * FROM player_vehicles WHERE citizenid = ?", {pdata.citizenid})
+        if #result > 0 then
+            local list = {}
 
-                for vehId, veh in pairs(result) do
+            for vehId, veh in pairs(result) do
+                if veh.balance == 0 and veh.state == 1 then
                     list[#list + 1] = {
-                        props = json.decode(veh.vehicle),
-                        name = veh.vehiclename,
-                        plate = veh.plate
+                        hash = veh.hash,
+                        model = veh.vehicle,
+                        plate = veh.plate,
+                        props = json.decode(veh.mods),
+                        distance = veh.drivingdistance
                     }
                 end
-
-                TriggerClientEvent("auction:openVehicleList", src, id, list)
-            else
-                notification(src, "info", "Information", "You dont have any cars")
             end
-        end)
+            print('found cars: ' .. #list)
+            TriggerClientEvent("auction:openVehicleList", src, id, list)
+        else
+            notification(src, "error", "ERROR", "You dont have any cars")
+        end
+    end
+
 end)
 
 RegisterServerEvent("auction:claimArea")
 AddEventHandler("auction:claimArea", function(id, title, initialValue, data)
     local src = source
 
-    if not Config.AuctionAreas[id] then
+    if not config.AuctionAreas[id] then
         logs.cheater(src)
         return
     end
 
-    local area = Config.AuctionAreas[id]
+    local area = config.AuctionAreas[id]
 
     if area.beingUsed then
-        notification(src, "error", "Error", "Area is already being")
+        notification(src, "error", "Error", "Area is already being used")
         return
     end
 
@@ -65,17 +113,17 @@ AddEventHandler("auction:claimArea", function(id, title, initialValue, data)
         [src] = true,
     }
 
-    area.data.data = {title = title, props = data.props}
+    area.data.data = {title = title, plate = data.plate, hash = data.hash, model = data.model, distance = data.distance, props = data.props}
 
-    TriggerClientEvent("auction:timer", -1, id, Config.AuctionDuration)
-    TriggerClientEvent("auction:syncAreas", -1, Config.AuctionAreas)
+    TriggerClientEvent("auction:timer", -1, id, config.AuctionDuration)
+    TriggerClientEvent("auction:syncAreas", -1, config.AuctionAreas)
 
-    SetTimeout(Config.AuctionDuration * 1000, function()
-        local area = Config.AuctionAreas[id]
+    SetTimeout(config.AuctionDuration * 1000, function()
+        local area = config.AuctionAreas[id]
 
         if area.data.player == area.data.bid.player then
-            notification(area.data.player, "info", "Information", "No one bid")
-            logs.noBid(src, area.data.data.props.plate)
+            notification(area.data.player, "error", "ERROR", "No one bid")
+            logs.noBid(src, area.data.data.plate)
 
             area.beingUsed = false
 
@@ -88,37 +136,48 @@ AddEventHandler("auction:claimArea", function(id, title, initialValue, data)
 
             area.data.data = nil
 
-            TriggerClientEvent("auction:syncAreas", -1, Config.AuctionAreas)
+            TriggerClientEvent("auction:syncAreas", -1, config.AuctionAreas)
             return
         end
-
-        local oldOwner = ESX.GetPlayerFromId(area.data.player)
-        local newOwner = ESX.GetPlayerFromId(area.data.bid.player)
-
-        if newOwner.getAccount("bank").money < area.data.bid.value then
+        local oldOwner = QBCore.Functions.GetPlayer(area.data.player)
+        local newOwner = QBCore.Functions.GetPlayer(area.data.bid.player)
+        print('old owner: ' .. area.data.player .. ', new owner: ' .. area.data.bid.player .. ', paid: ' .. area.data.bid.value)
+        print('old owner: ' .. oldOwner.PlayerData.citizenid, ', new owner: ' .. newOwner.PlayerData.citizenid .. ', paid: ' .. area.data.bid.value)
+        if newOwner.PlayerData.money['bank'] < area.data.bid.value then
             for tid, data in pairs(area.data.bid.uniquePlayers) do
-                notification(tid, "info", "Info", "The highest bidder didn't have the money in the bank")
+                notification(tid, "error", "ERROR", "The highest bidder didn't have the money in the bank")
             end
-           
+
             return
         end
-
-        newOwner.removeAccountMoney("bank", area.data.bid.value)
-        oldOwner.addAccountMoney("bank", area.data.bid.value)
-
-        MySQL.Async.fetchAll(
-            "UPDATE owned_vehicles SET owner = @owner WHERE plate = @plate", {
-                ["@owner"] = newOwner.identifier,
-                ["@plate"] = area.data.data.props.plate
-            }, function(result) end)
-
-       
-        local text = string.format("Someone bought %s for %s€", area.data.data.title, area.data.bid.value)
-        for tid, data in pairs(area.data.bid.uniquePlayers) do
-            notification(tid, "info", "Info", text)
+        local license = QBCore.Functions.GetIdentifier(src, 'license')
+        newOwner.Functions.RemoveMoney("bank", area.data.bid.value, "auction")
+        if area.data.data.plate ~= "ADMIN" then
+            oldOwner.Functions.AddMoney("bank", area.data.bid.value)
+            MySQL.update("UPDATE player_vehicles SET citizenid = ?, license = ? WHERE plate = ?", {newOwner.PlayerData.citizenid, license, area.data.data.plate})
+        else
+            local plate = GeneratePlate()
+            MySQL.insert('INSERT INTO player_vehicles (license, citizenid, vehicle, hash, mods, plate, garage, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', {
+                license,
+                newOwner.PlayerData.citizenid,
+                area.data.data.model,
+                area.data.data.hash,
+                '{}',
+                plate,
+                'pillboxgarage',
+                1
+            })
         end
 
-        logs.wonBid(src, area.data.data.props.plate, area.data.bid.value)
+
+
+
+        local text = string.format("Someone bought %s for $%s", area.data.data.title, area.data.bid.value)
+        for tid, data in pairs(area.data.bid.uniquePlayers) do
+            notification(tid, "success", "Purchase Successful", text)
+        end
+
+        logs.wonBid(src, area.data.data.plate, area.data.bid.value)
 
         area.beingUsed = false
         area.data.player = nil
@@ -130,7 +189,7 @@ AddEventHandler("auction:claimArea", function(id, title, initialValue, data)
         area.data.data = nil
         
 
-        TriggerClientEvent("auction:syncAreas", -1, Config.AuctionAreas)
+        TriggerClientEvent("auction:syncAreas", -1, config.AuctionAreas)
     end)
 end)
 
@@ -138,17 +197,18 @@ RegisterServerEvent("auction:bid")
 AddEventHandler("auction:bid", function(id, money)
     local src = source
 
-    if not Config.AuctionAreas[id] then
+    if not config.AuctionAreas[id] then
         logs.cheater(src)
         return
     end
 
-    local area = Config.AuctionAreas[id]
+    local area = config.AuctionAreas[id]
 
-    local xPlayer = ESX.GetPlayerFromId(src)
+    local Player = QBCore.Functions.GetPlayer(src)
+    local pdata = Player.PlayerData
 
-    if xPlayer.getAccount("bank").money < money then
-        notification(src, "error", "No money", "You dont have that amount of money")
+    if pdata.money['bank'] < money then
+        notification(src, "error", "No money", "You dont have funds to bid that amount")
         return
     end
 
@@ -161,15 +221,17 @@ AddEventHandler("auction:bid", function(id, money)
         area.data.bid.value = money
         area.data.bid.player = src
 
-        TriggerClientEvent("auction:syncAreas", -1, Config.AuctionAreas)
+        TriggerClientEvent("auction:syncAreas", -1, config.AuctionAreas)
 
         for tid, data in pairs(area.data.bid.uniquePlayers) do
-            notification(tid, "info", "Info", "Someone just bid " .. money .. "€")
+            notification(tid, "success", "Info", "Someone just bid $" .. money)
         end
 
         area.data.bid.uniquePlayers[src] = true
-        logs.bid(src, area.data.data.props.plate, money)
+        logs.bid(src, area.data.data.plate, money)
     else
         notification(src, "error", "Invalid Value", "That value is to low")
     end
 end)
+
+
