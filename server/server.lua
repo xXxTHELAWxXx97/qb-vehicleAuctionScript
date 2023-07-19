@@ -12,11 +12,9 @@ end
 
 RegisterServerEvent("auction:isAreaFree")
 AddEventHandler("auction:isAreaFree", function(id)
-    print("checking if area is free")
     local src = source
 
     if not config.AuctionAreas[id] then
-        print('cheater detected')
         logs.cheater(src)
         return
     end
@@ -24,7 +22,6 @@ AddEventHandler("auction:isAreaFree", function(id)
     local area = config.AuctionAreas[id]
 
     if area.beingUsed then
-        print('area is being used')
         notification(src, "error", "Info", "Area is being used")
         return
     end
@@ -33,7 +30,6 @@ AddEventHandler("auction:isAreaFree", function(id)
     local pdata = Player.PlayerData
 
     if QBCore.Functions.HasPermission(src, config.BypassOnwership.permission) then
-        print("Admin has triggered an auction")
         local list = {}
         for k, veh in pairs(QBCore.Shared.Vehicles) do
             local hash = GetHashKey(veh.model)
@@ -46,7 +42,6 @@ AddEventHandler("auction:isAreaFree", function(id)
         end
         TriggerClientEvent("auction:openVehicleList", src, id, list)
     elseif pdata.job.name == config.BypassOnwership.job and pdata.job.grade == config.BypassOwnership.grade then
-        print("Auctioner has triggered an auction")
         local list = {}
         for k, veh in pairs(QBCore.Shared.Vehicles) do
             local hash = GetHashKey(veh.model)
@@ -59,8 +54,6 @@ AddEventHandler("auction:isAreaFree", function(id)
         end
         TriggerClientEvent("auction:openVehicleList", src, id, list)
     else
-        print("Player has triggered an auction")
-        print('citizenid: ' .. pdata.citizenid)
         local result = MySQL.query.await("SELECT * FROM player_vehicles WHERE citizenid = ?", {pdata.citizenid})
         if #result > 0 then
             local list = {}
@@ -76,7 +69,6 @@ AddEventHandler("auction:isAreaFree", function(id)
                     }
                 end
             end
-            print('found cars: ' .. #list)
             TriggerClientEvent("auction:openVehicleList", src, id, list)
         else
             notification(src, "error", "ERROR", "You dont have any cars")
@@ -141,8 +133,6 @@ AddEventHandler("auction:claimArea", function(id, title, initialValue, data)
         end
         local oldOwner = QBCore.Functions.GetPlayer(area.data.player)
         local newOwner = QBCore.Functions.GetPlayer(area.data.bid.player)
-        print('old owner: ' .. area.data.player .. ', new owner: ' .. area.data.bid.player .. ', paid: ' .. area.data.bid.value)
-        print('old owner: ' .. oldOwner.PlayerData.citizenid, ', new owner: ' .. newOwner.PlayerData.citizenid .. ', paid: ' .. area.data.bid.value)
         if newOwner.PlayerData.money['bank'] < area.data.bid.value then
             for tid, data in pairs(area.data.bid.uniquePlayers) do
                 notification(tid, "error", "ERROR", "The highest bidder didn't have the money in the bank")

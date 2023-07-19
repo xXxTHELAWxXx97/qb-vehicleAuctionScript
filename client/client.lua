@@ -96,7 +96,6 @@ Citizen.CreateThread(function()
                 else
                     DrawText3D(area.coords.x, area.coords.y, area.coords.z + 2, "Click ~b~[E]~w~ to start an auction")
                     if IsControlJustReleased(0, 38) then
-                        print('start auction at location: ' .. id)
                         TriggerServerEvent("auction:isAreaFree", id)
                     end
                 end
@@ -118,7 +117,6 @@ Citizen.CreateThread(function()
 
                 if dst < 100 and not tempSpawnedCars[id] then
                     local model = area.data.data.model
-                    print(model, area.coords, area.heading)
                     QBCore.Functions.SpawnVehicle(model, function(veh)
                         SetEntityInvincible(veh, true)
                         SetVehicleNumberPlateText(veh, area.data.data.plate)
@@ -147,7 +145,6 @@ Citizen.CreateThread(function()
 end)
 
 function openVehicleList(areaId, list)
-    print('attempting to open menu')
     MenuV:CloseAll()
     OpenMenu()
 
@@ -167,10 +164,7 @@ function openVehicleList(areaId, list)
                 local title = LocalInput('Title of the auction: ', 30)
                 local valueInput = LocalInput('Initial value of the auction: ', 30)
                 local initialValue = tonumber(valueInput)
-                print('title = ' .. title .. ', init value = ' .. initialValue)
-                print(string.len(title), initialValue, type(initialValue))
                 local chosenVehicle = v.value
-                print('hash = ' .. list[chosenVehicle].hash)
                 if string.len(title) >=2 and initialValue ~= nil and type(initialValue) == "number" then
                     TriggerServerEvent("auction:claimArea", areaId, title, initialValue, list[chosenVehicle])
                     MenuV:CloseAll()
