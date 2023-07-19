@@ -1,7 +1,8 @@
+local QBCore = exports['qb-core']:GetCoreObject()
 
 if IsDuplicityVersion() then
     -- server
-    local chosenOne = Config.Notifications
+    local chosenOne = config.Notifications
 
     local notifList = {
         ["okokNotify"] = function(src, type, title, text)
@@ -20,7 +21,7 @@ if IsDuplicityVersion() then
             })
         end,
 
-        ["esx"] = function(src, type, title, text)
+        ["qb"] = function(src, type, title, text)
             TriggerClientEvent("auction:notification", src, type, title, text)
         end,
     }
@@ -28,7 +29,7 @@ if IsDuplicityVersion() then
     function notification(src, type, title, text)
 
         if not notifList[chosenOne] then
-            print("invalid notification config, check Config.Notifications!")
+            print("invalid notification config, check config.Notifications!")
             return
         end
 
@@ -38,7 +39,7 @@ if IsDuplicityVersion() then
 else
     -- client
 
-    local chosenOne = Config.Notifications
+    local chosenOne = config.Notifications
 
     local notifList = {
         ["okokNotify"] = function(type, title, text)
@@ -53,15 +54,15 @@ else
             exports['mythic_notify']:SendAlert(type, text, 5000)
         end,
 
-        ["esx"] = function(type, title, text)
-            ESX.ShowNotification(text, false, false)
+        ["qb"] = function(type, title, text)
+            QBCore.Functions.Notify(text, type)
         end,
     }
 
     function notification(type, title, text)
 
         if not notifList[chosenOne] then
-            print("invalid notification config, check Config.Notifications!")
+            print("invalid notification config, check config.Notifications!")
             return
         end
 
